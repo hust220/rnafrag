@@ -1,0 +1,25 @@
+data: Contains all the data
+
+Step 1: run-rnaview.py
+Run RNAView to parse all the RNA pdb files.
+
+Step 2: get-ss.py
+Get RNA secondary from RNAView outputs.
+
+Step 3: decompose-ss.py
+Decompose RNA secondary structure.
+
+Step 4: decompose-pdb.py
+Decompose RNA pdb files according to secondary structure decomposition output.
+
+Step 5: get-network.py
+Get the networks of all the loops according to RNAView outputs.
+
+Step 6: compare-network.py
+Compare two networks.
+
+Step 7: classify-motifs.py
+Classify all the loops based on the network comparing algorithm.
+
+Step 8: analyze-motifs.py
+Analyze all the motifs.
