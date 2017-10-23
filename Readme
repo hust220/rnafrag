@@ -1,16 +1,21 @@
 data: Contains all the data
+I didn't add this directory to git repository because it's too large.
+It has been put in Dropbox: https://www.dropbox.com/sh/35kdqg2fst4cosm/AAD_Zw0CGLVTJS5fz-DCR3b4a?dl=0
 
 Step 1: run-rnaview.py
 Run RNAView to parse all the RNA pdb files.
 
 Step 2: get-ss.py
 Get RNA secondary from RNAView outputs.
+An example of the secondary file is 'data/4K27.ss'.
 
 Step 3: decompose-ss.py
 Decompose RNA secondary structure.
+An example of the output is 'data/records'.
 
 Step 4: decompose-pdb.py
 Decompose RNA pdb files according to secondary structure decomposition output.
+An example of the output is 'data/loops'.
 
 Step 5: get-network.py
 Get the networks of all the loops according to RNAView outputs.
