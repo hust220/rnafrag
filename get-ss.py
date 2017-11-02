@@ -1,6 +1,40 @@
 import os
 from coparser import RnaviewParser, RnaViewParseError, is_canonical
-from operator import itemgetter
+from collections import defaultdict
+
+
+def monotonity(series):
+    """
+    Determine set of indices with knots by disorder in monotonically declined positions
+    :param series: list of integers - positions of bases in down chain
+    :return: dictionary with keys-integers - level of knot, and values-lists - corresponding base positions to knot
+    """
+    # Prepare variables
+    spikes = defaultdict(list)
+    i = 0
+    cyc = enumerate(zip(series, series[1:]))
+
+    # Iterate over list of 1st and 2nd, 3rd and 2nd, etc. base positions,
+    # if order of positions differ from strictly decreasing - add them to knot dictionary
+    for ind, (prev, curr) in cyc:
+        if prev < curr:
+            spikes[i].append(ind + 1)
+            try:
+                ind, (prev, curr) = next(cyc)
+            except:
+                break
+            
+            while prev > curr:
+                try:
+                    spikes[i].append(ind + 1)
+                    if series[ind + 1] < series[ind + 2]:
+                        i += 1
+                        break
+                    ind, (prev, curr) = next(cyc)
+                except:
+                    i += 1
+                    break
+    return spikes
 
 
 def main():
@@ -9,7 +43,7 @@ def main():
     :return:
     """
     # Create directory for file with SS annotations
-    os.makedirs('rnaview_ss', exist_ok=True)
+    os.makedirs('rnaview_ss2', exist_ok=True)
 
     # Take all files from rnaview_annotations directory with annotations from rnaview
     files = os.scandir('rnaview_annotations')
@@ -18,7 +52,6 @@ def main():
     # Essentially it parses all files from rnaview without errors except for the file with base pair statistic
     for file in files:
         with open(file.path, 'r') as source:
-
             try:
                 summary = RnaviewParser(source)
                 # Extract # of pairs, if it 0, don`t create file
@@ -43,17 +76,34 @@ def main():
                 both = find + sind
                 min_pos = min(both)
                 max_pos = max(both)
-                # first = [(x.Up.ResName, int(x.Up.ResId)) for x in canonical_bp]
-                # second = [(x.Down.ResName, int(x.Down.ResId)) for x in canonical_bp]
-                # print(first, second, min_pos, max_pos, find, sind, len(first), sep='\n')
+                first = [(x.Up.ResName, int(x.Up.ResId)) for x in canonical_bp]
+                second = [(x.Down.ResName, int(x.Down.ResId)) for x in canonical_bp]
+                # print(first, second, min_pos, max_pos, '\t'.join(map(str, find)), '\t'.join(map(str, sind)), len(first), sep='\n')
 
-                with open(os.path.join('rnaview_ss', file.name[3:7] + '.ss'), 'w') as dest:
+                si = monotonity(sind)
+                z = [find[x] for x in si[0]]
+                y = [sind[x] for x in si[0]]
+                zz = [find[x] for x in si[1]]
+                yy = [sind[x] for x in si[1]]
+
+                with open(os.path.join('rnaview_ss2', file.name[3:7] + '.ss'), 'w') as dest:
                     # Iterate over bases positions, add '(' or ')' to scheme if base in Secondary Structure, '.' otherwise
                     for i in range(min_pos, max_pos + 1):
                         if i in find:
-                            dest.write('(')
+                            if i in z:
+                                dest.write('[')
+                            elif i in zz:
+                                dest.write('{')
+                            else:
+                                dest.write('(')
                         elif i in sind:
-                            dest.write(')')
+                            if i in y:
+                                dest.write(']')
+                                # continue
+                            elif i in yy:
+                                dest.write('}')
+                            else:
+                                dest.write(')')
                         else:
                             dest.write('.')
 
@@ -116,3 +166,43 @@ Bases: A 75 G -- B 101 A; Annotation: H/W -- cis -- None -- !1H(b_b).;
 Bases: A 86 G -- B 90 C; Annotation: W/W -- cis -- None -- !1H(b_b).;
 <class 'coparser.BasePairs'>
 '''
+
+# find = [1, 2, 5, 6, 9, 10]
+# sind = [14, 13, 18, 17, 22, 21]
+# find = [1, 2, 5, 6]
+# sind = [8, 7, 12, 11]
+#
+#
+# def wr(find, sind):
+#     si = monotonity(sind)
+#     print(si)
+#     z = [find[x] for x in si[0]]
+#     y = [sind[x] for x in si[0]]
+#
+#     zz = [find[x] for x in si[1]]
+#     yy = [sind[x] for x in si[1]]
+#
+#     print(z)
+#     both = find + sind
+#     min_pos = min(both)
+#     max_pos = max(both)
+#
+#     for i in range(min_pos, max_pos + 1):
+#         if i in find:
+#             if i in z:
+#                 print('[', end='')
+#             elif i in zz:
+#                 print('{', end='')
+#             else:
+#                 print('(', end='')
+#
+#         elif i in sind:
+#             if i in y:
+#                 print(']', end='')
+#             elif i in yy:
+#                 print('}', end='')
+#             else:
+#                 print(')', end='')
+#
+#         else:
+#             print('.', end='')
