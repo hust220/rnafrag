@@ -21,6 +21,8 @@ Step 4: decompose_pdb.py
 Decompose RNA pdb files according to secondary structure decomposition output.
 An example of the output is 'data/loops'.
 
+Usage:
+
     python decompose_pdb.py -pdb aa.pdb -ghp aa.ghp
 
 Step 5: get_network.py
