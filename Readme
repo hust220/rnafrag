@@ -2,29 +2,35 @@ data: Contains all the data
 I didn't add this directory to git repository because it's too large.
 It has been put in Dropbox: https://www.dropbox.com/sh/35kdqg2fst4cosm/AAD_Zw0CGLVTJS5fz-DCR3b4a?dl=0
 
-Step 1: run-rnaview.py
+Step 1: run_rnaview.py
 Run RNAView to parse all the RNA pdb files.
 
-Step 2: get-ss.py
+Step 2: get_ss.py
 Get RNA secondary from RNAView outputs.
 An example of the secondary file is 'data/4K27.ss'.
 
-Step 3: decompose-ss.py
+Step 3: decompose_ss.py
 Decompose RNA secondary structure.
 An example of the output is 'data/records'.
 
-Step 4: decompose-pdb.py
+Usage:
+
+    python decompose_ss2.py -ss "$(cat aa.ss)"
+
+Step 4: decompose_pdb.py
 Decompose RNA pdb files according to secondary structure decomposition output.
 An example of the output is 'data/loops'.
 
-Step 5: get-network.py
+    python decompose_pdb.py -pdb aa.pdb -ghp aa.ghp
+
+Step 5: get_network.py
 Get the networks of all the loops according to RNAView outputs.
 
-Step 6: compare-network.py
+Step 6: compare_network.py
 Compare two networks.
 
-Step 7: classify-motifs.py
+Step 7: classify_motifs.py
 Classify all the loops based on the network comparing algorithm.
 
-Step 8: analyze-motifs.py
+Step 8: analyze_motifs.py
 Analyze all the motifs.
