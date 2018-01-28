@@ -1,5 +1,5 @@
 import os
-from coparser import RnaviewParser, RnaViewParseError, is_canonical
+from coparser import RnaviewParser, RnaViewParseError, is_canonical, in_chain_mod
 from collections import defaultdict
 
 
@@ -23,7 +23,7 @@ def monotonity(series):
                 ind, (prev, curr) = next(cyc)
             except:
                 break
-            
+
             while prev > curr:
                 try:
                     spikes[i].append(ind + 1)
@@ -39,11 +39,12 @@ def monotonity(series):
 
 def main():
     """
-    Parse output files from RNAview, write Secondary Structure of RNA in files
+    Parse output files from RNAView, write Secondary Structure of RNA in files
     :return:
     """
     # Create directory for file with SS annotations
     os.makedirs('rnaview_ss2', exist_ok=True)
+    os.makedirs('rnaview_meta_inf', exist_ok=True)
 
     # Take all files from rnaview_annotations directory with annotations from rnaview
     files = os.scandir('rnaview_annotations')
@@ -64,51 +65,110 @@ def main():
                 bp = summary['BP']
                 # Choose canonical bp - standard WC GC, AU or wobble GU
                 canonical_bp = bp.select(is_canonical)
+
                 # Don`t create file if there is no canonical bp
                 if not canonical_bp:
                     print('no canonical bp')
                     continue
+                with open(os.path.join('rnaview_ss2', file.name[3:7] + '.ss'), 'w') as dest, open(os.path.join('rnaview_meta_inf', file.name[3:7] + '.meta'), 'w') as meta:
+                    # Create set of tuples with chains of interacted bases in pairs
+                    chains = {(x.Up.ChainId, x.Down.ChainId) for x in canonical_bp}
+                    print(chains)
+                    # Iterate over chains combinations, determine representation of structure, write it to a file
+                    for var in chains:
+                        # Select base pairs with bases from selected chains
+                        cbp = canonical_bp.select(in_chain_mod(var))
 
-                # Create lists with bases position in bp
-                find = [int(x.Up.ResId) for x in canonical_bp]
-                sind = [int(x.Down.ResId) for x in canonical_bp]
-                # Find boundaries of SS which will be written
-                both = find + sind
-                min_pos = min(both)
-                max_pos = max(both)
-                first = [(x.Up.ResName, int(x.Up.ResId)) for x in canonical_bp]
-                second = [(x.Down.ResName, int(x.Down.ResId)) for x in canonical_bp]
-                # print(first, second, min_pos, max_pos, '\t'.join(map(str, find)), '\t'.join(map(str, sind)), len(first), sep='\n')
+                        # Create lists with bases position in bp
+                        find = [x.Up.ResId for x in cbp]
+                        sind = [x.Down.ResId for x in cbp]
+                        # print([x.Up.ResName for x in cbp])
+                        # print([x.Down.ResName for x in cbp])
+                        meta.write('{} "{}" {}-{} "{}"\n'.format(var, ' '.join(find), ''.join(x.Up.ResName for x in cbp),
+                                                               ''.join(x.Down.ResName for x in cbp), ' '.join(sind)))
 
-                si = monotonity(sind)
-                z = [find[x] for x in si[0]]
-                y = [sind[x] for x in si[0]]
-                zz = [find[x] for x in si[1]]
-                yy = [sind[x] for x in si[1]]
-
-                with open(os.path.join('rnaview_ss2', file.name[3:7] + '.ss'), 'w') as dest:
-                    # Iterate over bases positions, add '(' or ')' to scheme if base in Secondary Structure, '.' otherwise
-                    for i in range(min_pos, max_pos + 1):
-                        if i in find:
-                            if i in z:
-                                dest.write('[')
-                            elif i in zz:
-                                dest.write('{')
-                            else:
-                                dest.write('(')
-                        elif i in sind:
-                            if i in y:
-                                dest.write(']')
-                                # continue
-                            elif i in yy:
-                                dest.write('}')
-                            else:
-                                dest.write(')')
+                        find = list(map(int, find))
+                        sind = list(map(int, sind))
+                        # Overlap testing
+                        if var[0] != var[1]:
+                            dest.write('(' * len(find))
+                            dest.write(')' * len(sind))
                         else:
-                            dest.write('.')
+                            # Find boundaries of SS which will be written
+                            both = find + sind
+                            min_pos = min(both)
+                            max_pos = max(both)
+
+                            si = monotonity(sind)
+                            z = [find[x] for x in si[0]]
+                            y = [sind[x] for x in si[0]]
+                            zz = [find[x] for x in si[1]]
+                            yy = [sind[x] for x in si[1]]
+                            # print(find, sind, cbp, sep='\n')
+                            # Iterate over bases positions, add '(' or ')' to scheme if base in Secondary Structure, '.' otherwise
+                            for i in range(min_pos, max_pos + 1):
+                                if i in find:
+                                    if i in z:
+                                        dest.write('[')
+                                    elif i in zz:
+                                        dest.write('{')
+                                    else:
+                                        dest.write('(')
+                                elif i in sind:
+                                    if i in y:
+                                        dest.write(']')
+                                        # continue
+                                    elif i in yy:
+                                        dest.write('}')
+                                    else:
+                                        dest.write(')')
+                                else:
+                                    dest.write('.')
 
             except RnaViewParseError:
                 print('!')
+
+            #     print(chains, len(canonical_bp))
+            #     # Create lists with bases position in bp
+            #     find = [int(x.Up.ResId) for x in canonical_bp]
+            #     sind = [int(x.Down.ResId) for x in canonical_bp]
+            #     # Find boundaries of SS which will be written
+            #     both = find + sind
+            #     min_pos = min(both)
+            #     max_pos = max(both)
+            #     first = [(x.Up.ResName, int(x.Up.ResId)) for x in canonical_bp]
+            #     second = [(x.Down.ResName, int(x.Down.ResId)) for x in canonical_bp]
+            #     # print(first, second, min_pos, max_pos, '\t'.join(map(str, find)), '\t'.join(map(str, sind)), len(first), sep='\n')
+            #
+            #     si = monotonity(sind)
+            #     z = [find[x] for x in si[0]]
+            #     y = [sind[x] for x in si[0]]
+            #     zz = [find[x] for x in si[1]]
+            #     yy = [sind[x] for x in si[1]]
+            #     quit()
+            #     with open(os.path.join('rnaview_ss2', file.name[3:7] + '.ss'), 'w') as dest:
+            #         # Iterate over bases positions, add '(' or ')' to scheme if base in Secondary Structure, '.' otherwise
+            #         for i in range(min_pos, max_pos + 1):
+            #             if i in find:
+            #                 if i in z:
+            #                     dest.write('[')
+            #                 elif i in zz:
+            #                     dest.write('{')
+            #                 else:
+            #                     dest.write('(')
+            #             elif i in sind:
+            #                 if i in y:
+            #                     dest.write(']')
+            #                     # continue
+            #                 elif i in yy:
+            #                     dest.write('}')
+            #                 else:
+            #                     dest.write(')')
+            #             else:
+            #                 dest.write('.')
+            #
+            # except RnaViewParseError:
+            #     print('!')
 
 
 if __name__ == '__main__':
