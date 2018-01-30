@@ -15,6 +15,7 @@
 #include <iostream>
 #include <sstream>
 #include <fstream>
+#include <numeric>
 
 template<typename T, typename U>
 T lexical_cast(U && u) {
@@ -52,6 +53,8 @@ struct GraphMatching {
     Match match;
     const Graph &g1, &g2;
     int n1, n2;
+    std::vector<int> v1, v2;
+    std::vector<std::vector<int>> w1, w2;
 
     GraphMatching(const Graph &graph1, const Graph &graph2) : g1(graph1), g2(graph2) {
         n1 = g1.vertices.size();
@@ -59,7 +62,6 @@ struct GraphMatching {
 
         malloc_conn(m_conn1, n1);
         malloc_conn(m_conn2, n2);
-//        malloc_cache();
 
         set_conn(m_conn1, g1);
         set_conn(m_conn2, g2);
@@ -67,7 +69,7 @@ struct GraphMatching {
         set_matches();
 
         std::sort(matches.begin(), matches.end(), [](const Match &m1, const Match &m2){
-            return m1[0][0] < m2[0][0] || (m1[0][0] == m2[0][0] && m1[0][1] < m2[0][1]);
+            return m1.size() >= m2.size();
         });
     }
 
@@ -76,16 +78,10 @@ private:
 
     Conn m_conn1;
     Conn m_conn2;
-    Conn m_cache;
 
     void malloc_conn(Conn &conn, int n) {
         conn.resize(n);
         for (int i = 0; i < n; i++) conn[i].resize(n, 0);
-    }
-
-    void malloc_cache() {
-        m_cache.resize(n1);
-        for (int i = 0; i < n1; i++) m_cache[i].resize(n2, 0);
     }
 
     void set_conn(Conn &conn, const Graph &g) {
@@ -98,9 +94,9 @@ private:
     void set_matches() {
         bool flag = false;
         for (int i = 0; i < n1; i++) {
-            if (!in_matchl(match, i)) {
+            if (match_filter1(match, i)) {
                 for (int j = 0; j < n2; j++) {
-                    if (!in_matchr(match, j)) {
+                    if (match_filter2(match, j)) {
                         if (is_match(match, i, j)) {
                             flag = true;
                             match.push_back({i, j});
@@ -133,12 +129,26 @@ private:
         return true;
     }
 
-    bool in_matchl(const Match &m, int i) {
-        return std::find_if(m.begin(), m.end(), [&i](const Pair &p){return p[0] == i;}) != m.end();
+    bool match_filter1(const Match &m, int i) {
+        if (m.empty()) return true;
+
+        bool flag = false;
+        for (auto &&p : m) {
+            if (p[0] == i) return false;
+            if (m_conn1[i][p[0]]) flag = true;
+        }
+        return flag;
     }
 
-    bool in_matchr(const Match &m, int j) {
-        return std::find_if(m.begin(), m.end(), [&j](const Pair &p){return p[1] == j;}) != m.end();
+    bool match_filter2(const Match &m, int i) {
+        if (m.empty()) return true;
+
+        bool flag = false;
+        for (auto &&p : m) {
+            if (p[1] == i) return false;
+            if (m_conn2[i][p[1]]) flag = true;
+        }
+        return flag;
     }
 
     bool is_match(const Match &m, int i, int j) {
