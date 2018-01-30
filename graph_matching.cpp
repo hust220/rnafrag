@@ -57,8 +57,18 @@ struct GraphMatching {
         n1 = g1.vertices.size();
         n2 = g2.vertices.size();
 
-        set_conn();
+        malloc_conn(m_conn1, n1);
+        malloc_conn(m_conn2, n2);
+//        malloc_cache();
+
+        set_conn(m_conn1, g1);
+        set_conn(m_conn2, g2);
+
         set_matches();
+
+        std::sort(matches.begin(), matches.end(), [](const Match &m1, const Match &m2){
+            return m1[0][0] < m2[0][0] || (m1[0][0] == m2[0][0] && m1[0][1] < m2[0][1]);
+        });
     }
 
 private:
@@ -66,10 +76,16 @@ private:
 
     Conn m_conn1;
     Conn m_conn2;
+    Conn m_cache;
 
     void malloc_conn(Conn &conn, int n) {
         conn.resize(n);
         for (int i = 0; i < n; i++) conn[i].resize(n, 0);
+    }
+
+    void malloc_cache() {
+        m_cache.resize(n1);
+        for (int i = 0; i < n1; i++) m_cache[i].resize(n2, 0);
     }
 
     void set_conn(Conn &conn, const Graph &g) {
@@ -79,27 +95,20 @@ private:
         }
     }
 
-    void set_conn() {
-        malloc_conn(m_conn1, n1);
-        malloc_conn(m_conn2, n2);
-
-        set_conn(m_conn1, g1);
-        set_conn(m_conn2, g2);
-    }
-
     void set_matches() {
         bool flag = false;
         for (int i = 0; i < n1; i++) {
-            for (int j = 0; j < n2; j++) {
-                if (!in_match(match, i, j)) {
-                    if (is_match(match, i, j)) {
-                        flag = true;
-                        match.push_back({i, j});
-                        set_matches();
-                        match.pop_back();
+            if (!in_matchl(match, i)) {
+                for (int j = 0; j < n2; j++) {
+                    if (!in_matchr(match, j)) {
+                        if (is_match(match, i, j)) {
+                            flag = true;
+                            match.push_back({i, j});
+                            set_matches();
+                            match.pop_back();
+                        }
                     }
                 }
-
             }
         }
         if (!flag) {
@@ -124,9 +133,12 @@ private:
         return true;
     }
 
-    bool in_match(const Match &m, int i, int j) {
-        return std::find_if(m.begin(), m.end(), [&i](const Pair &p){return p[0] == i;}) != m.end() ||
-            std::find_if(m.begin(), m.end(), [&j](const Pair &p){return p[1] == j;}) != m.end();
+    bool in_matchl(const Match &m, int i) {
+        return std::find_if(m.begin(), m.end(), [&i](const Pair &p){return p[0] == i;}) != m.end();
+    }
+
+    bool in_matchr(const Match &m, int j) {
+        return std::find_if(m.begin(), m.end(), [&j](const Pair &p){return p[1] == j;}) != m.end();
     }
 
     bool is_match(const Match &m, int i, int j) {
@@ -149,6 +161,13 @@ std::vector<Match> graph_match(const Graph &g1, const Graph &g2) {
     return GraphMatching(g1, g2).matches;
 }
 
+void graph_print(const Graph &g) {
+    std::cout << g.vertices.size();
+    for (auto &&edge : g.edges) {
+        std::cout << edge[0]+1 << edge[1]+1 << edge[2] << std::endl;
+    }
+}
+
 Graph graph_read(std::string fn) {
     std::ifstream ifile(fn.c_str());
     std::string line;
@@ -165,6 +184,7 @@ Graph graph_read(std::string fn) {
         else if (!v.empty()) {
             std::vector<int> edge;
             for (auto &&s : v) edge.push_back(lexical_cast<int>(s)-1);
+            edge.back()++;
             g.edges.push_back(std::move(edge));
         }
         l++;

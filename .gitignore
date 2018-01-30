@@ -2,3 +2,4 @@ data
 data.tar.gz
 *.pyc
 test
+.*.swp
