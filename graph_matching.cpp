@@ -13,6 +13,30 @@
 #include <array>
 #include <algorithm>
 #include <iostream>
+#include <sstream>
+#include <fstream>
+
+template<typename T, typename U>
+T lexical_cast(U && u) {
+    std::stringstream stream;
+    T t;
+
+    stream << u;
+    stream >> t;
+    return t;
+}
+
+std::vector<std::string> string_tokenize(const std::string &str, const std::string &delimiters) {
+    std::vector<std::string> tokens;
+    auto lastPos = str.find_first_not_of(delimiters, 0);
+    auto pos = str.find_first_of(delimiters, lastPos);
+    while (std::string::npos != pos || std::string::npos != lastPos) {
+        tokens.push_back(str.substr(lastPos, pos - lastPos));
+        lastPos = str.find_first_not_of(delimiters, pos);
+        pos = str.find_first_of(delimiters, lastPos);
+    }
+    return std::move(tokens);
+}
 
 struct Graph {
     std::vector<int> vertices;
@@ -121,14 +145,40 @@ private:
     }
 };
 
-std::vector<Match> match_graph(const Graph &g1, const Graph &g2) {
+std::vector<Match> graph_match(const Graph &g1, const Graph &g2) {
     return GraphMatching(g1, g2).matches;
 }
 
-int main() {
-    Graph g1{{0, 1, 2}, {{0, 1, 1}, {0, 2, 1}, {1, 2, 2}}};
-    Graph g2{{0, 1, 2, 3}, {{0, 3, 1}, {3, 2, 1}, {2, 1, 2}, {0, 2, 2}}};
-    for (auto && match : match_graph(g1, g2)) {
+Graph graph_read(std::string fn) {
+    std::ifstream ifile(fn.c_str());
+    std::string line;
+    int l = 0;
+    Graph g;
+    while (ifile) {
+        std::getline(ifile, line);
+        auto &&v = string_tokenize(line, " ");
+        if (l == 0) {
+            int n = lexical_cast<int>(v[0]);
+            g.vertices.resize(n);
+            for (int i = 0; i < n; i++) g.vertices[i] = i;
+        }
+        else if (!v.empty()) {
+            std::vector<int> edge;
+            for (auto &&s : v) edge.push_back(lexical_cast<int>(s)-1);
+            g.edges.push_back(std::move(edge));
+        }
+        l++;
+    }
+    ifile.close();
+    return std::move(g);
+}
+
+int main(int argc, char **argv) {
+//    Graph g1{{0, 1, 2}, {{0, 1, 1}, {0, 2, 1}, {1, 2, 2}}};
+//    Graph g2{{0, 1, 2, 3}, {{0, 3, 1}, {3, 2, 1}, {2, 1, 2}, {0, 2, 2}}};
+    auto &&g1 = graph_read(argv[1]);
+    auto &&g2 = graph_read(argv[2]);
+    for (auto && match : graph_match(g1, g2)) {
         std::cout << "New Match:" << std::endl;
         for (auto && p : match) {
             std::cout << p[0] << '-' << p[1] << ' ';
