@@ -10,6 +10,7 @@
  **************************************************/
 
 #include <vector>
+#include <list>
 #include <array>
 #include <algorithm>
 #include <iostream>
@@ -52,21 +53,21 @@ struct GraphMatching {
     Matches matches;
     Match match;
     const Graph &g1, &g2;
-    int n1, n2;
-    std::vector<int> v1, v2;
-    std::vector<std::vector<int>> w1, w2;
 
     GraphMatching(const Graph &graph1, const Graph &graph2) : g1(graph1), g2(graph2) {
-        n1 = g1.vertices.size();
-        n2 = g2.vertices.size();
+        parse_graph(g1, m_conn1, m_connected_vertices1, n1);
+        parse_graph(g2, m_conn2, m_connected_vertices2, n2);
 
-        malloc_conn(m_conn1, n1);
-        malloc_conn(m_conn2, n2);
+        for (ii = 0; ii < n1; ii++) {
+            for (jj = 0; jj < n2; jj++) {
+//                std::cout << ii << ' ' << jj << std::endl;
+                match_push(ii, jj);
+                set_matches();
+                match_pop();
+            }
+        }
 
-        set_conn(m_conn1, g1);
-        set_conn(m_conn2, g2);
-
-        set_matches();
+//        std::cout << "matches: " << matches.size() << std::endl;
 
         std::sort(matches.begin(), matches.end(), [](const Match &m1, const Match &m2){
             return m1.size() >= m2.size();
@@ -75,41 +76,156 @@ struct GraphMatching {
 
 private:
     using Conn = std::vector<std::vector<int>>;
+    using ConnVerts = std::vector<std::list<int>>;
 
     Conn m_conn1;
     Conn m_conn2;
+    ConnVerts m_connected_vertices1;
+    ConnVerts m_connected_vertices2;
 
-    void malloc_conn(Conn &conn, int n) {
+    int ii, jj;
+    int n1, n2;
+    std::list<int> v1, v2;
+    std::list<std::list<int>> all_added1, all_added2, all_erased1, all_erased2;
+
+    void parse_graph(const Graph &g, Conn &conn, ConnVerts &v, int &n) {
+        n = g.vertices.size();
+
         conn.resize(n);
         for (int i = 0; i < n; i++) conn[i].resize(n, 0);
-    }
-
-    void set_conn(Conn &conn, const Graph &g) {
         for (auto && e : g.edges) {
             conn[e[0]][e[1]] = e[2];
             conn[e[1]][e[0]] = e[2];
         }
+
+        v.resize(n);
+        for (int i = 0; i < n; i++) {
+            for (int j = 0; j < n; j++) {
+                if (conn[i][j]) {
+                    v[i].push_back(j);
+                }
+            }
+        }
+    }
+
+    void match_push(int i, int j) {
+        std::list<int> erased1, erased2, added1, added2;
+
+//        std::cout << "match: ";
+//        for (auto &&p : match) std::cout << p[0] << '-' << p[1] << ' ';
+//        std::cout << std::endl;
+
+        match.push_back({i, j});
+
+        auto it = std::find(v1.begin(), v1.end(), i);
+        if (it != v1.end()) {
+            v1.erase(it);
+            erased1.push_back(i);
+        }
+        all_erased1.push_back(std::move(erased1));
+
+        it = std::find(v2.begin(), v2.end(), j);
+        if (it != v2.end()) {
+            v2.erase(it);
+            erased2.push_back(j);
+        }
+        all_erased2.push_back(std::move(erased2));
+
+        for (auto &&n : m_connected_vertices1[i]) {
+            if (n >= ii && n != i) {
+                if (std::find(v1.begin(), v1.end(), n) == v1.end() && 
+                    std::find_if(match.begin(), match.end(), [&n](const Pair &p){
+                        return p[0] == n;
+                    }) == match.end())
+                {
+                    v1.push_back(n);
+                    added1.push_back(n);
+                }
+            }
+        }
+        all_added1.push_back(std::move(added1));
+
+        for (auto &&n : m_connected_vertices2[j]) {
+            if (n >= jj && n != j) {
+                if (std::find(v2.begin(), v2.end(), n) == v2.end() &&
+                    std::find_if(match.begin(), match.end(), [&n](const Pair &p){
+                        return p[1] == n;
+                    }) == match.end())
+                {
+                    v2.push_back(n);
+                    added2.push_back(n);
+                }
+            }
+        }
+        all_added2.push_back(std::move(added2));
+
+    }
+
+    template<typename T>
+    void print_list(T &&v, std::string name) {
+        std::cout << name << ':';
+        for (auto &&i : v) {
+            std::cout << ' ' << i;
+        }
+        std::cout << std::endl;
+    }
+
+    void match_pop() {
+        auto &added1 = all_added1.back();
+        auto &added2 = all_added2.back();
+        auto &erased1 = all_erased1.back();
+        auto &erased2 = all_erased2.back();
+
+        for (auto &&i : added1) {
+            v1.erase(std::find(v1.begin(), v1.end(), i));
+        }
+        for (auto &&i : erased1) {
+            v1.push_back(i);
+        }
+
+//        print_list(v2, "v2 begin");
+        for (auto &&i : added2) {
+            v2.erase(std::find(v2.begin(), v2.end(), i));
+        }
+        for (auto &&i : erased2) {
+            v2.push_back(i);
+        }
+//        print_list(v2, "v2 after");
+
+        match.pop_back();
+        all_added1.pop_back();
+        all_erased1.pop_back();
+        all_added2.pop_back();
+        all_erased2.pop_back();
     }
 
     void set_matches() {
         bool flag = false;
-        for (int i = 0; i < n1; i++) {
-            if (match_filter1(match, i)) {
-                for (int j = 0; j < n2; j++) {
-                    if (match_filter2(match, j)) {
-                        if (is_match(match, i, j)) {
-                            flag = true;
-                            match.push_back({i, j});
-                            set_matches();
-                            match.pop_back();
-                        }
-                    }
+//        print_list(v1, "v1");
+//        print_list(v2, "v2");
+        auto w1 = v1;
+        auto w2 = v2;
+        for (auto &&i : w1) {
+            for (auto &&j : w2) {
+//                std::cout << "i: " << i << ", j: " << j << std::endl;
+                if (is_match(match, i, j)) {
+                    flag = true;
+                    match_push(i, j);
+                    set_matches();
+                    match_pop();
                 }
             }
         }
         if (!flag) {
-            std::sort(match.begin(), match.end(), [](const Pair &p1, const Pair &p2){return p1[0] < p2[0] || (p1[0] == p2[0] && p1[1] <= p2[1]);});
-            if (!exists(match)) matches.push_back(match);
+//            std::cout << "match size: " << match.size() << std::endl;
+//            std::cout << "match: ";
+//            for (auto &&p : match) std::cout << p[0] << '-' << p[1] << ' ';
+//            std::cout << std::endl;
+            if (match.size() > 2) {
+                auto m = match;
+                std::sort(m.begin(), m.end(), [](const Pair &p1, const Pair &p2){return p1[0] < p2[0] || (p1[0] == p2[0] && p1[1] <= p2[1]);});
+                if (!exists(m)) matches.push_back(m);
+            }
         }
     }
 
